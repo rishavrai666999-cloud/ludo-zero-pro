@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+body { margin:0; font-family:sans-serif; background:#0f172a; color:#fff; text-align:center; }
+#board { width:90vw; height:90vw; margin:auto; background:#eee; position:relative; }
+.token {
+  width:20px; height:20px;
+  clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+  position:absolute;
+}
+button { padding:10px; margin:10px; }
+</style>
+</head>
+<body>
+
+<h2>Ludo Zero Pro</h2>
+<div id="info"></div>
+<div id="board"></div>
+<button onclick="restart()">Restart</button>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+const room = prompt("Room Code");
+
+let state, myId;
+
+socket.emit('join', room);
+
+socket.on('init', () => { myId = socket.id; });
+socket.on('state', s => { state = s; render(); });
+socket.on('sound', t => playSound(t));
+
+function render(){
+  const b = document.getElementById('board');
+  b.innerHTML = '';
+
+  const num = state.sequence[state.seqIndex];
+
+  document.getElementById('info').innerHTML = `
+    Turn: ${state.turn}<br>
+    Current: ${num}<br>
+    Next: ${state.sequence.slice(state.seqIndex+1, state.seqIndex+4)}
+  `;
+
+  state.players.forEach((pid,i)=>{
+    state.tokens[pid].forEach(t=>{
+      if(t.pos>=0){
+        const el=document.createElement('div');
+        el.className='token';
+        el.style.background=state.colors[i];
+        el.style.left=(t.pos%13)*7+'%';
+        el.style.top=Math.floor(t.pos/13)*7+'%';
+
+        if(pid===myId){
+          el.onclick=()=> socket.emit('move',{roomId:room,tokenId:t.id});
+        }
+
+        b.appendChild(el);
+      }
+    });
+  });
+}
+
+function restart(){ socket.emit('restart', room); }
+
+const sounds = {
+  kill:new Audio(),
+  win:new Audio()
+};
+
+function playSound(t){ if(sounds[t]) sounds[t].play(); }
+
+</script>
+</body>
+</html>
